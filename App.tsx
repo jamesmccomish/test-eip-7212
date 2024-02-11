@@ -34,17 +34,17 @@ export default function App() {
     }
   }
 
-  // const handleSignR1WithPasskey = async () => {
-  //   const { r, s, hash } = await signR1WithPasskey({ credentialId });
+  const handleSignR1WithPasskey = async () => {
+    const { r, s, hash } = await signR1WithPasskey({ credentialId });
 
-  //   console.log("signature response -", { r, s, hash });
-  //   setSignatureResult({
-  //     r,
-  //     s,
-  //     hash,
-  //     combined: `${hash}${r}${s}${passkeyResult?.pk.substr(2)}`
-  //   });
-  // }
+    console.log("signature response -", { r, s, hash });
+    setSignatureResult({
+      r,
+      s,
+      hash,
+      combined: `${hash}${r}${s}${passkeyResult?.pk.substr(2)}`
+    });
+  }
 
   return (
     <View style={{ flex: 1 }}>
@@ -62,21 +62,26 @@ export default function App() {
           <Pressable style={styles.button} onPress={handleCreatePasskey}>
             <Text>Create</Text>
           </Pressable>
-          {/* <Pressable style={styles.button} onPress={handleSignR1WithPasskey}>
-            <Text>Authenticate</Text>
-          </Pressable> */}
+          <Pressable style={styles.button} onPress={handleSignR1WithPasskey}>
+            <Text>Sign Message</Text>
+          </Pressable>
           {/* <Pressable style={styles.button} onPress={writeBlob}>
   					<Text>Add Blob</Text>
-  				</Pressable>
-  				<Pressable style={styles.button} onPress={readBlob}>
-  					<Text>Read Blob</Text>
-  				</Pressable> */}
+  				</Pressable>*/}
         </View>
         {passkeyResult &&
           <>
             <Text style={styles.resultText}>Result {passkeyResult.x}</Text>
             <Text style={styles.resultText}>Result {passkeyResult.y}</Text>
             <Text style={styles.resultText}>Result {passkeyResult.pk}</Text>
+          </>
+        }
+        {signatureResult &&
+          <>
+            <Text style={styles.resultText}>Signature R: {signatureResult.r}</Text>
+            <Text style={styles.resultText}>Signature S: {signatureResult.s}</Text>
+            <Text style={styles.resultText}>Hash: {signatureResult.hash}</Text>
+            <Text style={styles.resultText}>Combined: {signatureResult.combined}</Text>
           </>
         }
       </ScrollView>

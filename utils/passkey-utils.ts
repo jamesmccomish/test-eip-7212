@@ -25,10 +25,6 @@ export function utf8StringToBuffer(value: string): ArrayBuffer {
     return new TextEncoder().encode(value);
 }
 
-export function base64UrlToString(base64urlString: Base64URLString): string {
-    return base64.toString(base64urlString, true);
-}
-
 export function toBuffer(
     base64urlString: Base64URLString,
     from: 'base64' | 'base64url' = 'base64url',
@@ -71,15 +67,30 @@ const authenticatorSelection = {
     residentKey: "required",
 } satisfies AuthenticatorSelectionCriteria;
 
+const bufferToHex = (buffer: ArrayBuffer) => {
+    return [...new Uint8Array(buffer)]
+        .map(x => x.toString(16).padStart(2, '0'))
+        .join('');
+}
 
-export function toHash(data: string | ArrayBuffer, algo = 'SHA256') {
-    return crypto.createHash(algo).update(data).digest()
+const createSHA256Hash = async (input) => {
+    // Convert the input string to a Uint8Array
+    const encoder = new TextEncoder();
+    const data = encoder.encode(input);
+
+    // Use the subtle API to create a SHA-256 hash
+    const shaHashBuffer = await window.crypto.subtle.digest('SHA-256', data)
+
+    return bufferToHex(shaHashBuffer);
 }
 
 export const getMessageSHA256HashFromAttestation = async (props: {
     clientDataJSON: ArrayBuffer
     authenticatorData: ArrayBuffer
-}) => toHash(await getMessageFromAttestation(props))
+}) => {
+    console.log("getMessageSHA256HashFromAttestation:");
+    return await createSHA256Hash(await getMessageFromAttestation(props))
+}
 
 export const getMessageFromAttestation = async ({
     authenticatorData: authenticatorDataArrayBuffer,
@@ -89,15 +100,11 @@ export const getMessageFromAttestation = async ({
     authenticatorData: ArrayBuffer
 }) => {
     const authenticatorData = new Uint8Array(authenticatorDataArrayBuffer)
-    const clientDataHash = toHash(clientDataJSON)
-    const signatureBase = Buffer.concat([authenticatorData, clientDataHash])
+    const clientDataHash = await createSHA256Hash(clientDataJSON)
+    const b = Buffer.from(clientDataHash, "hex")
+    console.log("getmessageatt:", { b });
+    const signatureBase = Buffer.concat([authenticatorData, Buffer.from(clientDataHash, "hex")])
     return signatureBase
-}
-
-const buf2hex = (buffer: ArrayBuffer) => {
-    return [...new Uint8Array(buffer)]
-        .map(x => x.toString(16).padStart(2, '0'))
-        .join('');
 }
 
 // ? See https://github.dev/0xjjpa/passkeys-is/blob/main/src/lib/passkey.ts#L37
@@ -181,45 +188,32 @@ export const passkeyUtils = () => {
     };
 
     const signR1WithPasskey = async ({ credentialId }: { credentialId: string }) => {
-        // const passkeyResponse = await passkey.get({
-        //     rpId: undefined,
-        //     challenge,
-        //     ...(credentialId && {
-        //         allowCredentials: [{ id: credentialId, type: "public-key" }],
-        //     }),
-        // });
+        const passkeyResponse = await passkey.get({
+            rpId: undefined,
+            challenge,
+            ...(credentialId && {
+                allowCredentials: [{ id: credentialId, type: "public-key" }],
+            }),
+        });
 
-        // const {
-        //     response: {
-        //         signature,
-        //         authenticatorData: rawAuthenticatorData,
-        //         clientDataJSON: rawClientDataJSON,
-        //     },
-        //     clientExtensionResults,
-        // } = passkeyResponse
+        const {
+            response: {
+                signature,
+                authenticatorData: rawAuthenticatorData,
+                clientDataJSON: rawClientDataJSON,
+            },
+            clientExtensionResults,
+        } = passkeyResponse
 
-        // console.log("passkey response -", { passkeyResponse, authData: rawAuthenticatorData, signature });
-        // // const {
-        // //     response: {
-        // //         signature,
-        // //     },
-        // // } = passkeyResponse
+        const { r, s } = getRAndSFromSignature(Buffer.from(signature))
 
-        // const { r, s } = getRAndSFromSignature(Buffer.from(signature))
+        const hashHex = await getMessageSHA256HashFromAttestation({
+            authenticatorData: rawAuthenticatorData,
+            clientDataJSON: rawClientDataJSON
+        })
 
-        // const hashBuff = 1
-        // // await getMessageSHA256HashFromAttestation({
-        // //     authenticatorData: rawAuthenticatorData,
-        // //     clientDataJSON: rawClientDataJSON
-        // // })
-
-        // const hashHex = Buffer.from(hashBuff).toString('hex')
-
-
-        // console.log("signature response -", { r, s, challenge, hashBuff, hashHex });
-
-        // return { r, s, hash: hashHex };
-        //setResult(passkeyResponse);
+        console.log("signature response -", { r, s, challenge, hashHex });
+        return { r, s, hash: hashHex };
     };
 
     return { signR1WithPasskey, createPasskey };
