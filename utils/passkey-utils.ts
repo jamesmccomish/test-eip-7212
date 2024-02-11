@@ -73,38 +73,29 @@ const bufferToHex = (buffer: ArrayBuffer) => {
         .join('');
 }
 
-const createSHA256Hash = async (input) => {
-    // Convert the input string to a Uint8Array
-    const encoder = new TextEncoder();
-    const data = encoder.encode(input);
+const base64UrlToArrayBuffer = (base64Url: string): ArrayBuffer => {
+    // Replace '-' with '+' and '_' with '/' to get the standard Base64 format
+    let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
 
-    // Use the subtle API to create a SHA-256 hash
-    const shaHashBuffer = await window.crypto.subtle.digest('SHA-256', data)
+    // Add padding if necessary
+    const padding = base64.length % 4;
+    if (padding) {
+        base64 += '='.repeat(4 - padding);
+    }
 
-    return bufferToHex(shaHashBuffer);
-}
+    // Decode the Base64 string to a byte array
+    const binaryString = window.atob(base64);
 
-export const getMessageSHA256HashFromAttestation = async (props: {
-    clientDataJSON: ArrayBuffer
-    authenticatorData: ArrayBuffer
-}) => {
-    console.log("getMessageSHA256HashFromAttestation:");
-    return await createSHA256Hash(await getMessageFromAttestation(props))
-}
+    // Create a new ArrayBuffer and a Uint8Array view on it
+    const arrayBuffer = new ArrayBuffer(binaryString.length);
+    const uint8Array = new Uint8Array(arrayBuffer);
 
-export const getMessageFromAttestation = async ({
-    authenticatorData: authenticatorDataArrayBuffer,
-    clientDataJSON
-}: {
-    clientDataJSON: ArrayBuffer
-    authenticatorData: ArrayBuffer
-}) => {
-    const authenticatorData = new Uint8Array(authenticatorDataArrayBuffer)
-    const clientDataHash = await createSHA256Hash(clientDataJSON)
-    const b = Buffer.from(clientDataHash, "hex")
-    console.log("getmessageatt:", { b });
-    const signatureBase = Buffer.concat([authenticatorData, Buffer.from(clientDataHash, "hex")])
-    return signatureBase
+    // Fill the Uint8Array with the byte values from the binary string
+    for (let i = 0; i < binaryString.length; i++) {
+        uint8Array[i] = binaryString.charCodeAt(i);
+    }
+
+    return arrayBuffer;
 }
 
 // ? See https://github.dev/0xjjpa/passkeys-is/blob/main/src/lib/passkey.ts#L37
@@ -202,18 +193,49 @@ export const passkeyUtils = () => {
                 authenticatorData: rawAuthenticatorData,
                 clientDataJSON: rawClientDataJSON,
             },
-            clientExtensionResults,
         } = passkeyResponse
+
+        console.log('sign passkey response', { signature, rawAuthenticatorData, rawClientDataJSON })
+
+        // ---------------- getting full signed message ----------------
+        // convert base64url responses to ArrayBuffer
+        const authenticatorDataAsUint8Array = new Uint8Array(base64UrlToArrayBuffer(rawAuthenticatorData));
+        const clientDataHashAsUint8Array = new Uint8Array(await crypto.subtle.digest("SHA-256", base64UrlToArrayBuffer(rawClientDataJSON)));
+
+        // combine into signed message
+        const signedData = new Uint8Array(authenticatorDataAsUint8Array.length + clientDataHashAsUint8Array.length);
+        signedData.set(authenticatorDataAsUint8Array);
+        signedData.set(clientDataHashAsUint8Array, authenticatorDataAsUint8Array.length);
+
+        console.log('auth response data', { signedData, authenticatorDataAsUint8Array, clientDataHashAsUint8Array })
+        // ----------------
+
+        // ---------------- checking the returned client data ----------------
+        const utf8Decoder = new TextDecoder('utf-8');
+        const decodedClientData = utf8Decoder.decode(
+            toBuffer(rawClientDataJSON, 'base64url'))
+        const clientDataObj = JSON.parse(decodedClientData);
+
+        console.log({ decodedClientData, clientDataObj })
+        // ----------------
+
+        // This is the hash of the message that was signed
+        const messageHash = await crypto.subtle.digest(
+            { name: "SHA-256" },
+            new TextEncoder().encode("fizz")
+            //base64UrlToArrayBuffer(challenge)
+        );
+        const messageHex = bufferToHex(messageHash);
+
+        console.log({
+            messageHash,
+            messageHex,
+            message: utf8Decoder.decode(base64UrlToArrayBuffer(challenge)) // in this test case, "fizz"
+        })
 
         const { r, s } = getRAndSFromSignature(Buffer.from(signature))
 
-        const hashHex = await getMessageSHA256HashFromAttestation({
-            authenticatorData: rawAuthenticatorData,
-            clientDataJSON: rawClientDataJSON
-        })
-
-        console.log("signature response -", { r, s, challenge, hashHex });
-        return { r, s, hash: hashHex };
+        return { r, s, hash: messageHex };
     };
 
     return { signR1WithPasskey, createPasskey };

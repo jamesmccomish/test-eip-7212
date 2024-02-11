@@ -21,14 +21,27 @@ export default function App() {
   const [credentialId, setCredentialId] = React.useState("");
 
   const handleCreatePasskey = async () => {
-    try {
-      const json = await createPasskey();
-      console.log("creation json -", json);
 
-      if (json?.rawId) setCredentialId(json.rawId);
-      setPasskeyResult(json);
-    } catch (e) {
-      console.error("create error", e);
+    const test = 2
+
+    if (test === 1) {
+      setCredentialId('y4jS7NkNsasJG5M4C7BTkQzTcGA')
+      setPasskeyResult({
+        rawId: 'JDD1tBopvSNRotAYd2IHDGtyRMs',
+        pk: '0x9cfa7d8ad7f4ad2fa9e57bcd1b8c706ff0ae3994a6ff812bde8210d49fa383d9189e9f5fd1527c964acda8c97d3855eadf6421a8fe448a42087a89cb8a5edffd',
+        x: '9cfa7d8ad7f4ad2fa9e57bcd1b8c706ff0ae3994a6ff812bde8210d49fa383d9',
+        y: '189e9f5fd1527c964acda8c97d3855eadf6421a8fe448a42087a89cb8a5edffd'
+      })
+    } else {
+      try {
+        const json = await createPasskey();
+        console.log("creation json -", json);
+
+        if (json?.rawId) setCredentialId(json.rawId);
+        setPasskeyResult(json);
+      } catch (e) {
+        console.error("create error", e);
+      }
     }
   }
 
@@ -41,10 +54,19 @@ export default function App() {
       s,
       hash,
       combined: `${hash}${r}${s}${passkeyResult?.pk.substr(2)}`
+
     });
   }
 
   const handleCallPrecompile = async () => {
+    console.log({
+      hash: signatureResult?.hash,
+      r: signatureResult?.r,
+      s: signatureResult?.s,
+      x: passkeyResult?.x,
+      y: passkeyResult?.y,
+      combined: signatureResult?.combined
+    })
     const callResult = await client.call({
       account: '0x0000000000000000000000000000000000000111',
       data: `0x${signatureResult?.combined}`,
@@ -82,22 +104,30 @@ export default function App() {
         </View>
         {passkeyResult &&
           <>
-            <Text style={styles.resultText}>Result {passkeyResult.x}</Text>
-            <Text style={styles.resultText}>Result {passkeyResult.y}</Text>
-            <Text style={styles.resultText}>Result {passkeyResult.pk}</Text>
+            <br />
+            <Text style={styles.resultText}>X: {passkeyResult.x}</Text>
+            <Text style={styles.resultText}>Y: {passkeyResult.y}</Text>
+            <Text style={styles.resultText}>Public: {passkeyResult.pk}</Text>
+            <br />
+            <br />
           </>
         }
         {signatureResult &&
           <>
+            <br />
             <Text style={styles.resultText}>Signature R: {signatureResult.r}</Text>
             <Text style={styles.resultText}>Signature S: {signatureResult.s}</Text>
             <Text style={styles.resultText}>Hash: {signatureResult.hash}</Text>
             <Text style={styles.resultText}>Combined: {signatureResult.combined}</Text>
+            <br />
+            <br />
           </>
         }
         {callResult &&
           <>
+            <br />
             <Text style={styles.resultText}>Call Result: {JSON.stringify(callResult)}</Text>
+            <br />
           </>
         }
       </ScrollView>
