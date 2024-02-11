@@ -1,0 +1,112 @@
+diff --git a/node_modules/react-native-passkeys/build/ReactNativePasskeysModule.web.d.ts b/node_modules/react-native-passkeys/build/ReactNativePasskeysModule.web.d.ts
+index 0442eff..92cf97c 100644
+--- a/node_modules/react-native-passkeys/build/ReactNativePasskeysModule.web.d.ts
++++ b/node_modules/react-native-passkeys/build/ReactNativePasskeysModule.web.d.ts
+@@ -1,9 +1,9 @@
+-import type { AuthenticationResponseJSON, PublicKeyCredentialCreationOptionsJSON, PublicKeyCredentialRequestOptionsJSON, RegistrationResponseJSON } from "./ReactNativePasskeys.types";
++import type { AuthenticationResponseJSON, PublicKeyCredentialCreationOptionsJSON, PublicKeyCredentialRequestOptionsJSON, RegistrationResponseWithPublicKeyJSON } from "./ReactNativePasskeys.types";
+ declare const _default: {
+     readonly name: string;
+     isAutoFillAvalilable(): Promise<boolean>;
+     isSupported(): boolean;
+-    create({ signal, ...request }: PublicKeyCredentialCreationOptionsJSON & Pick<CredentialCreationOptions, "signal">): Promise<RegistrationResponseJSON | null>;
++    create({ signal, ...request }: PublicKeyCredentialCreationOptionsJSON & Pick<CredentialCreationOptions, "signal">): Promise<RegistrationResponseWithPublicKeyJSON | null>;
+     get({ mediation, signal, ...request }: PublicKeyCredentialRequestOptionsJSON & Pick<CredentialRequestOptions, "mediation" | "signal">): Promise<AuthenticationResponseJSON | null>;
+ };
+ export default _default;
+diff --git a/node_modules/react-native-passkeys/build/ReactNativePasskeysModule.web.js b/node_modules/react-native-passkeys/build/ReactNativePasskeysModule.web.js
+index 586735c..ab7c9aa 100644
+--- a/node_modules/react-native-passkeys/build/ReactNativePasskeysModule.web.js
++++ b/node_modules/react-native-passkeys/build/ReactNativePasskeysModule.web.js
+@@ -42,7 +42,10 @@ export default {
+             response: {
+                 clientDataJSON: bufferToBase64URLString(credential.response.clientDataJSON),
+                 attestationObject: bufferToBase64URLString(credential.response.attestationObject),
++                publicKey: bufferToBase64URLString(credential.response.getPublicKey()),
+             },
++            publicKey: credential.response.getPublicKey(),
++            //js: credential.toJSON(),
+             authenticatorAttachment: undefined,
+             type: "public-key",
+             clientExtensionResults: {
+diff --git a/node_modules/react-native-passkeys/src/ReactNativePasskeys.types.ts b/node_modules/react-native-passkeys/src/ReactNativePasskeys.types.ts
+index 9935817..07bc396 100644
+--- a/node_modules/react-native-passkeys/src/ReactNativePasskeys.types.ts
++++ b/node_modules/react-native-passkeys/src/ReactNativePasskeys.types.ts
+@@ -87,6 +87,12 @@ export interface RegistrationResponseJSON {
+ 	type: PublicKeyCredentialType;
+ }
+ 
++// ? tmp patch to easily return public key for demo
++export interface RegistrationResponseWithPublicKeyJSON extends RegistrationResponseJSON {
++	publicKey: ArrayBuffer;
++	//js: PublicKeyCredentialJSON;
++}
++
+ /**
+  * A slightly-modified AuthenticationCredential to simplify working with ArrayBuffers that
+  * are Base64URL-encoded so that they can be sent as JSON.
+diff --git a/node_modules/react-native-passkeys/src/ReactNativePasskeysModule.web.ts b/node_modules/react-native-passkeys/src/ReactNativePasskeysModule.web.ts
+index 89d3460..6a57c52 100644
+--- a/node_modules/react-native-passkeys/src/ReactNativePasskeysModule.web.ts
++++ b/node_modules/react-native-passkeys/src/ReactNativePasskeysModule.web.ts
+@@ -7,7 +7,7 @@ import type {
+ 	PublicKeyCredentialCreationOptionsJSON,
+ 	PublicKeyCredentialRequestOptionsJSON,
+ 	RegistrationCredential,
+-	RegistrationResponseJSON,
++	RegistrationResponseWithPublicKeyJSON,
+ } from "./ReactNativePasskeys.types";
+ import { NotSupportedError } from "./errors";
+ import { base64URLStringToBuffer, bufferToBase64URLString } from "./utils/base64";
+@@ -36,7 +36,7 @@ export default {
+ 		signal,
+ 		...request
+ 	}: PublicKeyCredentialCreationOptionsJSON &
+-		Pick<CredentialCreationOptions, "signal">): Promise<RegistrationResponseJSON | null> {
++		Pick<CredentialCreationOptions, "signal">): Promise<RegistrationResponseWithPublicKeyJSON | null> {
+ 		if (!this.isSupported) throw new NotSupportedError();
+ 
+ 		const credential = (await navigator.credentials.create({
+@@ -68,7 +68,10 @@ export default {
+ 			response: {
+ 				clientDataJSON: bufferToBase64URLString(credential.response.clientDataJSON),
+ 				attestationObject: bufferToBase64URLString(credential.response.attestationObject),
++				publicKey: bufferToBase64URLString(credential.response.getPublicKey()),
+ 			},
++			publicKey: credential.response.getPublicKey(), // credential.response.getPublicKey(),
++			//js: credential.toJSON(),
+ 			authenticatorAttachment: undefined,
+ 			type: "public-key",
+ 			clientExtensionResults: {
+@@ -80,7 +83,7 @@ export default {
+ 					},
+ 				}),
+ 			} satisfies AuthenticationExtensionsClientOutputsJSON,
+-		};
++		} as RegistrationResponseWithPublicKeyJSON;
+ 	},
+ 
+ 	async get({
+diff --git a/node_modules/react-native-passkeys/src/index.ts b/node_modules/react-native-passkeys/src/index.ts
+index fd86eba..5efbe78 100644
+--- a/node_modules/react-native-passkeys/src/index.ts
++++ b/node_modules/react-native-passkeys/src/index.ts
+@@ -7,7 +7,7 @@ import type {
+ 	PublicKeyCredentialCreationOptionsJSON,
+ 	PublicKeyCredentialRequestOptionsJSON,
+ 	RegistrationCredential,
+-	RegistrationResponseJSON,
++	RegistrationResponseWithPublicKeyJSON,
+ } from './ReactNativePasskeys.types'
+ 
+ // Import the native module. On web, it will be resolved to ReactNativePasskeys.web.ts
+@@ -28,7 +28,7 @@ export async function create(
+ 		// - no extensions are currently supported on Android
+ 		extensions?: { largeBlob?: AuthenticationExtensionsLargeBlobInputs }
+ 	} & Pick<CredentialCreationOptions, 'signal'>,
+-): Promise<RegistrationResponseJSON | null> {
++): Promise<RegistrationResponseWithPublicKeyJSON | null> {
+ 	return await ReactNativePasskeysModule.create(request)
+ }
+ 
