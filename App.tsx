@@ -1,6 +1,6 @@
 import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 //import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { passkeyUtils } from "./utils/passkey-utils";
+import { passkeys } from "./utils/passkeys";
 import React from 'react';
 import { client } from "./utils/viem-client";
 
@@ -13,7 +13,7 @@ export default function App() {
     left: 0,
   }
 
-  const { createPasskey, signR1WithPasskey } = passkeyUtils();
+  const { createPasskey, signR1WithPasskey } = passkeys();
 
   const [passkeyResult, setPasskeyResult] = React.useState();
   const [signatureResult, setSignatureResult] = React.useState({});
@@ -25,12 +25,12 @@ export default function App() {
     const test = 2
 
     if (test === 1) {
-      setCredentialId('y4jS7NkNsasJG5M4C7BTkQzTcGA')
+      setCredentialId('CInTdSzq0c89QehXZWpADbl1Zww')
       setPasskeyResult({
-        rawId: 'JDD1tBopvSNRotAYd2IHDGtyRMs',
-        pk: '0x9cfa7d8ad7f4ad2fa9e57bcd1b8c706ff0ae3994a6ff812bde8210d49fa383d9189e9f5fd1527c964acda8c97d3855eadf6421a8fe448a42087a89cb8a5edffd',
-        x: '9cfa7d8ad7f4ad2fa9e57bcd1b8c706ff0ae3994a6ff812bde8210d49fa383d9',
-        y: '189e9f5fd1527c964acda8c97d3855eadf6421a8fe448a42087a89cb8a5edffd'
+        rawId: 'CInTdSzq0c89QehXZWpADbl1Zww',
+        pk: '0xfe143136555a9d82be0d6566d6320d4961eb8481947fd035f16cd2aa54b1d7b853afcc7969ec6d33b5a8c5069c7531ea8de2cd4d7952b7dd87fca6289fcb3334',
+        x: 'fe143136555a9d82be0d6566d6320d4961eb8481947fd035f16cd2aa54b1d7b8',
+        y: '53afcc7969ec6d33b5a8c5069c7531ea8de2cd4d7952b7dd87fca6289fcb3334'
       })
     } else {
       try {
