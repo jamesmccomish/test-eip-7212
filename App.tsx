@@ -1,11 +1,9 @@
-import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-//import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { passkeys } from "./utils/passkeys";
 import React from 'react';
 import { client } from "./utils/viem-client";
 
 export default function App() {
-  //const insets = useSafeAreaInsets();
   const insets = {
     top: 0,
     right: 0,
@@ -13,122 +11,123 @@ export default function App() {
     left: 0,
   }
 
+  const P256VERIFY_ADDRESS = '0x0000000000000000000000000000000000000100' // p256verify precompile
+  const DUMMY_ADDRESS = '0x0000000000000000000000000000000000000111' // dummy address for call
+
   const { createPasskey, signR1WithPasskey } = passkeys();
 
-  const [passkeyResult, setPasskeyResult] = React.useState();
+  const [passkeyResult, setPasskeyResult] = React.useState({});
   const [signatureResult, setSignatureResult] = React.useState({});
-  const [callResult, setCallResult] = React.useState({});
+  const [callResult, setCallResult] = React.useState(undefined);
   const [credentialId, setCredentialId] = React.useState("");
 
   const handleCreatePasskey = async () => {
+    try {
+      const passkey = await createPasskey();
+      console.log("creation json -", passkey);
 
-    const test = 2
-
-    if (test === 1) {
-      setCredentialId('CInTdSzq0c89QehXZWpADbl1Zww')
-      setPasskeyResult({
-        rawId: 'CInTdSzq0c89QehXZWpADbl1Zww',
-        pk: '0xfe143136555a9d82be0d6566d6320d4961eb8481947fd035f16cd2aa54b1d7b853afcc7969ec6d33b5a8c5069c7531ea8de2cd4d7952b7dd87fca6289fcb3334',
-        x: 'fe143136555a9d82be0d6566d6320d4961eb8481947fd035f16cd2aa54b1d7b8',
-        y: '53afcc7969ec6d33b5a8c5069c7531ea8de2cd4d7952b7dd87fca6289fcb3334'
-      })
-    } else {
-      try {
-        const json = await createPasskey();
-        console.log("creation json -", json);
-
-        if (json?.rawId) setCredentialId(json.rawId);
-        setPasskeyResult(json);
-      } catch (e) {
-        console.error("create error", e);
-      }
+      if (passkey?.rawId) setCredentialId(passkey.rawId);
+      setPasskeyResult(passkey);
+    } catch (e) {
+      console.error("create error", e);
     }
   }
 
   const handleSignR1WithPasskey = async () => {
-    const { r, s, hash } = await signR1WithPasskey({ credentialId });
-    console.log("signature response -", { r, s, hash });
+    const sigData = await signR1WithPasskey({ credentialId });
+    console.log("signature response -", { ...sigData });
 
     setSignatureResult({
-      r,
-      s,
-      hash,
-      combined: `${hash}${r}${s}${passkeyResult?.pk.substr(2)}`
-
+      ...sigData,
+      combined: `${sigData.hash}${sigData.r}${sigData.s}${passkeyResult?.pk.substr(2)}`
     });
   }
 
   const handleCallPrecompile = async () => {
     console.log({
-      hash: signatureResult?.hash,
-      r: signatureResult?.r,
-      s: signatureResult?.s,
-      x: passkeyResult?.x,
-      y: passkeyResult?.y,
-      combined: signatureResult?.combined
+      ...signatureResult,
+      ...passkeyResult
     })
+
     const callResult = await client.call({
-      account: '0x0000000000000000000000000000000000000111',
-      data: `0x${signatureResult?.combined}`,
-      //data: `0x${'9e1b8f6e4a810fed210f5fe75fd0727198eea412181a11c5ad199f9d568e8caa594349514355506b464474736a4177516a325f685761546246727074326a5031316b4e76546d327349556b4d304d6e414968414d50464a65735f77496b745458be57b0048332e3b7131cc5fa2994760104c817d321a1e03774576deb4d22582076f6010b6ab330a3b84e906ba3f3924d1ec099b2cffc55a6bc96ab17eaf55b8f'}`,
-      // data: `0x${'4cee90eb86eaa050036147a12d49004b6b9c72bd725d39d4785011fe190f0b4da73bd4903f0ce3b639bbbf6e8e80d16931ff4bcf5993d58468e8fb19086e8cac36dbcd03009df8c59286b162af3bd7fcc0450c9aa81be5d10d312af6c66b1d604aebd3099c618202fcfe16ae7770b0c49ab5eadf74b754204a3bb6060e44eff37618b065f9832de4ca6ca971a7a1adc826d0f7c00181a5fb2ddf79ae00b4e10e'}`,
-      to: '0x0000000000000000000000000000000000000100'
+      account: DUMMY_ADDRESS,
+      data: `0x${signatureResult?.combined}`, // combined hash, r, s, x, y
+      to: P256VERIFY_ADDRESS
     })
     console.log("call result -", callResult);
 
-    setCallResult({ data: callResult });
+    setCallResult(callResult?.data ?? 'failed');
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: "#fccefe" }}>
       <ScrollView
         style={{
-          paddingTop: insets.top,
-          backgroundColor: "#fccefe",
-          paddingBottom: insets.bottom,
+          paddingTop: "10%",
+          marginBottom: "10%",
         }}
         contentContainerStyle={styles.scrollContainer}
       >
-        <Text style={styles.title}>Testing Passkeys</Text>
-        {credentialId && <Text>User Credential ID: {credentialId}</Text>}
+        <Text style={styles.title}>Testing EIP-7212</Text>
+        <br />
+        <br />
+        <Text style={styles.infoText}>The introduction of {" "}
+          <Text
+            onPress={() => Linking.openURL("https://eips.ethereum.org/EIPS/eip-7212")}
+            style={{ textDecorationLine: "underline" }}
+          >
+            this EIP
+          </Text>
+          {" "} allows for signature verifications on the secp256r1 curve</Text>
+        <br />
+        <Text style={styles.infoText}>This opens up the possibility for passkeys to control contract wallets, with comparable gas costs to standard Ethereum secp256k1 signatures</Text>
+        <br />
+        <Text style={styles.infoText}>The below example, built using{" "}
+          <Text
+            onPress={() => Linking.openURL("https://github.com/peterferguson/react-native-passkeys")}
+            style={{ textDecorationLine: "underline" }}
+          >
+            react-native-passkeys
+          </Text>
+          {" "}lets you create a passkey, sign a test message, and call the precompile</Text>
         <View style={styles.buttonContainer}>
           <Pressable style={styles.button} onPress={handleCreatePasskey}>
             <Text>Create</Text>
           </Pressable>
           <Pressable style={styles.button} onPress={handleSignR1WithPasskey}>
-            <Text>Sign Message</Text>
+            <Text>Sign</Text>
           </Pressable>
           <Pressable style={styles.button} onPress={handleCallPrecompile}>
-            <Text>Call Precompile</Text>
+            <Text>Call</Text>
           </Pressable>
         </View>
-        {passkeyResult &&
+        {passkeyResult.x &&
           <>
+            <Text>Your new passkey</Text>
             <br />
             <Text style={styles.resultText}>X: {passkeyResult.x}</Text>
             <Text style={styles.resultText}>Y: {passkeyResult.y}</Text>
-            <Text style={styles.resultText}>Public: {passkeyResult.pk}</Text>
-            <br />
             <br />
           </>
         }
-        {signatureResult &&
+        {signatureResult.r &&
           <>
+            <Text>Created this signature</Text>
             <br />
             <Text style={styles.resultText}>Signature R: {signatureResult.r}</Text>
             <Text style={styles.resultText}>Signature S: {signatureResult.s}</Text>
             <Text style={styles.resultText}>Hash: {signatureResult.hash}</Text>
-            <Text style={styles.resultText}>Combined: {signatureResult.combined}</Text>
-            <br />
             <br />
           </>
         }
-        {callResult &&
+        {callResult && (callResult !== 'failed' ?
           <>
+            <Text>And successfully called P256VERIFY!</Text>
             <br />
-            <Text style={styles.resultText}>Call Result: {JSON.stringify(callResult)}</Text>
+            <Text style={styles.resultText}>Call Result: {callResult}</Text>
             <br />
-          </>
+          </> :
+          <Text>Has failed to verify :/</Text>)
         }
       </ScrollView>
       <Text
@@ -140,15 +139,15 @@ export default function App() {
           right: 0,
         }}
       >
-        Built using{" "}
+        Code on{" "}
         <Text
-          onPress={() => Linking.openURL("https://github.com/peterferguson/react-native-passkeys")}
+          onPress={() => Linking.openURL("https://github.com/jamesmccomish/test-eip-7212")}
           style={{ textDecorationLine: "underline" }}
         >
-          react-native-passkeys
+          Github
         </Text>
       </Text>
-    </View>
+    </View >
   );
 }
 
@@ -161,10 +160,15 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: "bold",
-    marginVertical: "5%",
+  },
+  infoText: {
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
+    maxWidth: "90%",
   },
   resultText: {
-    maxWidth: "80%",
+    maxWidth: "90%",
   },
   buttonContainer: {
     padding: 24,
