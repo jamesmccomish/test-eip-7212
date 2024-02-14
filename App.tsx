@@ -101,7 +101,7 @@ export default function App() {
             <Text>Call</Text>
           </Pressable>
         </View>
-        {passkeyResult.x &&
+        {passkeyResult?.x &&
           <>
             <Text>Your new passkey</Text>
             <br />
@@ -110,7 +110,7 @@ export default function App() {
             <br />
           </>
         }
-        {signatureResult.r &&
+        {signatureResult?.r &&
           <>
             <Text>Created this signature</Text>
             <br />
